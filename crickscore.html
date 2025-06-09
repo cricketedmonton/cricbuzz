@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Cricket Score Tracker</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #f4f6f8;
+      margin: 0;
+      padding: 0;
+    }
+    .app { max-width: 500px; margin: auto; padding: 20px; }
+    .tabs { display: flex; justify-content: space-around; margin-bottom: 15px; }
+    .tab { padding: 10px 20px; cursor: pointer; border-radius: 5px; background: #ddd; }
+    .tab.active { background: #4CAF50; color: white; }
+    .card { background: white; border-radius: 8px; padding: 15px; margin-bottom: 15px; box-shadow: 0 0 5px rgba(0,0,0,0.1); }
+    .group-title { font-weight: bold; margin-bottom: 10px; font-size: 1.1em; color: #333; }
+    .btn-secondary { margin: 5px; padding: 10px; min-width: 60px; background-color: #e0e0e0; border: none; border-radius: 4px; cursor: pointer; }
+    .btn-secondary:hover { background-color: #ccc; }
+    .btn-primary { background-color: #4CAF50; color: white; }
+    .btn-danger { background-color: #f44336; color: white; }
+    .score-info { font-size: 1.2em; margin: 5px 0; }
+    .bowler-list div:nth-child(even) { background-color: #f9f9f9; }
+    .bowler-list div:nth-child(odd) { background-color: #e0f7fa; }
+    .bowler-list { border: 1px solid #ccc; border-radius: 4px; padding: 5px; }
+    #pinPrompt { display: none; position: fixed; top: 30%; left: 50%; transform: translateX(-50%); background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px gray; }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <div id="pinPrompt">
+    <p>Enter PIN to Edit:</p>
+    <input type="password" id="pinInput"/>
+    <button onclick="checkPIN()">Submit</button>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" onclick="switchInnings(0)">Innings 1</div>
+    <div class="tab" onclick="switchInnings(1)">Innings 2</div>
+  </div>
+
+  <div class="card">
+    <div class="score-info" id="score">Runs: 0 | Wickets: 0</div>
+    <div class="score-info" id="overs">Overs: 0.0</div>
+    <div class="score-info" id="extras">Extras: 0 (W: 0, NB: 0, B: 0, LB: 0)</div>
+  </div>
+
+  <div class="card">
+    <div class="group-title">Add Runs</div>
+    <div>
+      <button class="btn-secondary" onclick="addRun(0)">0</button>
+      <button class="btn-secondary" onclick="addRun(1)">1</button>
+      <button class="btn-secondary" onclick="addRun(2)">2</button>
+      <button class="btn-secondary" onclick="addRun(3)">3</button>
+      <button class="btn-secondary" onclick="addRun(4)">4</button>
+      <button class="btn-secondary" onclick="addRun(6)">6</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="group-title">Extras</div>
+    <div>
+      <button class="btn-secondary" onclick="addWide()">Wide</button>
+      <button class="btn-secondary" onclick="addNoBall(0)">No Ball</button>
+      <button class="btn-secondary" onclick="addNoBall(1)">No Ball +1</button>
+      <button class="btn-secondary" onclick="addNoBall(2)">No Ball +2</button>
+      <button class="btn-secondary" onclick="addNoBall(3)">No Ball +3</button>
+      <button class="btn-secondary" onclick="addNoBall(4)">No Ball +4</button>
+      <button class="btn-secondary" onclick="addNoBall(6)">No Ball +6</button>
+      <button class="btn-secondary" onclick="addBye()">Bye</button>
+      <button class="btn-secondary" onclick="addLegBye()">Leg Bye</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="group-title">Other Actions</div>
+    <button class="btn-secondary" onclick="addWicket()">Wicket</button>
+    <button class="btn-secondary" onclick="undo()">Undo</button>
+    <button class="btn-danger" onclick="confirmReset()">Reset</button>
+  </div>
+
+  <div class="card">
+    <div class="group-title">Bowler</div>
+    <input type="text" id="bowlerInput" placeholder="Enter bowler name" />
+    <button class="btn-primary" onclick="addBowler()">Add / Switch Bowler</button>
+    <div class="bowler-list" id="bowlerList"></div>
+  </div>
+
+</div>
+
+<script>
+  let innings = [
+    { runs: 0, wickets: 0, balls: 0, history: [], extras: { wides: 0, noballs: 0, byes: 0, legbyes: 0 }, bowlers: {}, currentBowler: 'Unknown' },
+    { runs: 0, wickets: 0, balls: 0, history: [], extras: { wides: 0, noballs: 0, byes: 0, legbyes: 0 }, bowlers: {}, currentBowler: 'Unknown' }
+  ];
+  let currentInnings = 0;
+  const pin = "1234";
+
+  function getInnings() { return innings[currentInnings]; }
+
+  function switchInnings(i) {
+    currentInnings = i;
+    document.querySelectorAll('.tab').forEach((tab, index) => {
+      tab.classList.toggle('active', index === i);
+    });
+    updateDisplay();
+  }
+
+  function updateDisplay() {
+    const inn = getInnings();
+    document.getElementById("score").textContent = Runs: ${inn.runs} | Wickets: ${inn.wickets};
+    document.getElementById("overs").textContent = Overs: ${Math.floor(inn.balls / 6)}.${inn.balls % 6};
+    updateExtrasDisplay();
+    updateBowlerList();
+  }
+
+  function updateExtrasDisplay() {
+    const ex = getInnings().extras;
+    const totalExtras = ex.wides + ex.noballs + ex.byes + ex.legbyes;
+    document.getElementById("extras").textContent =
+      Extras: ${totalExtras} (W: ${ex.wides}, NB: ${ex.noballs}, B: ${ex.byes}, LB: ${ex.legbyes});
+  }
+
+  function updateBowlerList() {
+    const bowlers = getInnings().bowlers;
+    const html = Object.entries(bowlers).map(([name, overs]) =>
+      <div><strong>${name}:</strong> ${Math.floor(overs / 6)}.${overs % 6} overs</div>
+    ).join("");
+    document.getElementById("bowlerList").innerHTML = html;
+  }
+
+  function recordBall(runs = 0, isLegal = true) {
+    const inn = getInnings();
+    inn.runs += runs;
+    if (isLegal) inn.balls++;
+    inn.history.push({ runs, isLegal });
+    if (isLegal) {
+      const bowler = inn.currentBowler || 'Unknown';
+      if (!inn.bowlers[bowler]) inn.bowlers[bowler] = 0;
+      inn.bowlers[bowler]++;
+    }
+    updateDisplay();
+  }
+
+  function addRun(r) { recordBall(r); }
+
+  function addWide() {
+    const inn = getInnings();
+    inn.runs++;
+    inn.extras.wides++;
+    inn.history.push({ type: "wide", runs: 1 });
+    updateDisplay();
+  }
+
+  function addNoBall(extraRuns = 0) {
+    const inn = getInnings();
+    const total = 1 + extraRuns;
+    inn.runs += total;
+    inn.extras.noballs++;
+    inn.history.push({ type: "noball", runs: total });
+    updateDisplay();
+  }
+
+  function addBye() {
+    const inn = getInnings();
+    inn.extras.byes++;
+    inn.runs++;
+    inn.history.push({ type: "bye", runs: 1 });
+    updateDisplay();
+  }
+
+  function addLegBye() {
+    const inn = getInnings();
+    inn.extras.legbyes++;
+    inn.runs++;
+    inn.history.push({ type: "legbye", runs: 1 });
+    updateDisplay();
+  }
+
+  function addWicket() {
+    const inn = getInnings();
+    inn.wickets++;
+    inn.balls++;
+    inn.history.push({ type: "wicket" });
+    if (!inn.bowlers[inn.currentBowler]) inn.bowlers[inn.currentBowler] = 0;
+    inn.bowlers[inn.currentBowler]++;
+    updateDisplay();
+  }
+
+  function undo() {
+    const inn = getInnings();
+    const last = inn.history.pop();
+    if (!last) return;
+
+    if (last.runs !== undefined) {
+      inn.runs -= last.runs;
+      if (last.isLegal) {
+        inn.balls--;
+        if (inn.bowlers[inn.currentBowler]) inn.bowlers[inn.currentBowler]--;
+      }
+    }
+    if (last.type === "wide") inn.extras.wides--;
+    if (last.type === "noball") inn.extras.noballs--;
+    if (last.type === "bye") inn.extras.byes--;
+    if (last.type === "legbye") inn.extras.legbyes--;
+    if (last.type === "wicket") {
+      inn.wickets--;
+      inn.balls--;
+      if (inn.bowlers[inn.currentBowler]) inn.bowlers[inn.currentBowler]--;
+    }
+
+    updateDisplay();
+  }
+
+  function confirmReset() {
+    if (confirm("Undo is not possible after this. Are you sure you want to reset?")) {
+      innings = innings.map(() => ({
+        runs: 0, wickets: 0, balls: 0, history: [], extras: { wides: 0, noballs: 0, byes: 0, legbyes: 0 }, bowlers: {}, currentBowler: 'Unknown'
+      }));
+      updateDisplay();
+    }
+  }
+
+  function addBowler() {
+    const name = document.getElementById("bowlerInput").value.trim();
+    if (!name) return;
+    getInnings().currentBowler = name;
+    if (!getInnings().bowlers[name]) getInnings().bowlers[name] = 0;
+    document.getElementById("bowlerInput").value = "";
+    updateDisplay();
+  }
+
+  function checkPIN() {
+    const input = document.getElementById("pinInput").value;
+    if (input === pin) {
+      document.getElementById("pinPrompt").style.display = "none";
+    } else {
+      alert("Incorrect PIN.");
+    }
+  }
+
+  window.onload = () => {
+    document.getElementById("pinPrompt").style.display = "block";
+    updateDisplay();
+  };
+</script>
+</body>
+</html>
